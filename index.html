@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anatomia by ALE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=EB+Garamond:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="plate">
+  <header>
+    <span id="plateLabel">Prancha I · Todos os ossos</span>
+    <span>created by Manzotti</span>
+  </header>
+  <h1>Bone Anatomy</h1>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="main">Todos os ossos</button>
+    <button class="tab" data-tab="upper">Ossos superiores</button>
+    <button class="tab" data-tab="braco">Ossos do braço</button>
+    <button class="tab" data-tab="torax">Tórax</button>
+    <button class="tab" data-tab="inferior">Membros inferiores</button>
+    <button class="tab" data-tab="mao">Ossos da mão</button>
+    <button class="tab" data-tab="pe">Ossos do pé</button>
+    <button class="tab" data-tab="coluna">Coluna vertebral</button>
+  </div>
+
+  <div class="layout">
+    <div class="skel-wrap" id="skelWrap">
+      <div class="legend">
+        <span><i class="dot d0"></i> não selecionado</span>
+        <span><i class="dot d1"></i> selecionado</span>
+        <span><i class="dot d2"></i> acertado</span>
+        <span><i class="dot d3"></i> errado</span>
+      </div>
+    </div>
+
+    <div class="panel" id="panel">
+      <div class="progress">
+        <button class="reset-inline" onclick="resetGame()">↻ Reiniciar progresso</button>
+        <span id="progress">0 / 0</span>
+      </div>
+      <p class="instructions" id="instructions"></p>
+
+      <div id="puzzleArea"></div>
+
+      <div class="winMsg" id="winMsg">Você identificou todos os ossos desta prancha. Parabéns!</div>
+
+      <div class="listTitle">Lista numerada</div>
+      <div class="boneList" id="boneList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
