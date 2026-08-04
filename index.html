@@ -7,53 +7,486 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=EB+Garamond:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="config/firebaseConfig.js"></script>
+<script src="services/storageService.js"></script>
+<script src="services/settingsService.js"></script>
+<script>
+// Aplica o tema salvo antes da página desenhar, pra não piscar claro
+// e depois trocar pra escuro. StorageService/SettingsService já
+// carregaram acima (só lógica, sem tocar no DOM), então dá pra usar a
+// mesma camada de serviços aqui também.
+(function(){
+  if(SettingsService.getTheme() === 'dark'){
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
 </head>
 <body>
 <div class="plate">
+  <div id="topBar" class="top-bar">
+    <div class="top-bar-item"><span class="top-bar-icon" id="topBarAvatar">👤</span><span class="top-bar-text" id="topBarUserName">Visitante</span></div>
+    <div class="top-bar-item"><span class="top-bar-icon">📈</span><span class="top-bar-text" id="topBarProgress">0%</span></div>
+    <div class="top-bar-item"><span class="top-bar-icon">🏆</span><span class="top-bar-text" id="topBarAchievements">0/0</span></div>
+    <div class="top-bar-item"><span class="top-bar-icon">⏱</span><span class="top-bar-text" id="topBarTime">0m</span></div>
+    <div class="top-bar-item"><span class="top-bar-icon">❤️</span><span class="top-bar-text" id="topBarAccuracy">0%</span></div>
+  </div>
   <header>
-    <span id="plateLabel">Prancha I · Todos os ossos</span>
+    <span id="plateLabel">Início</span>
     <span>created by Manzotti</span>
   </header>
-  <h1>Bone Anatomy</h1>
 
-  <div class="tabs" id="tabs">
-    <button class="tab active" data-tab="main">Todos os ossos</button>
-    <button class="tab" data-tab="upper">Ossos superiores</button>
-    <button class="tab" data-tab="braco">Ossos do braço</button>
-    <button class="tab" data-tab="torax">Tórax</button>
-    <button class="tab" data-tab="inferior">Membros inferiores</button>
-    <button class="tab" data-tab="mao">Ossos da mão</button>
-    <button class="tab" data-tab="pe">Ossos do pé</button>
-    <button class="tab" data-tab="coluna">Coluna vertebral</button>
+  <div id="screen-auth" class="screen">
+    <div class="auth-wrap">
+      <h1 class="home-logo">Anatomia <em>by</em> ALE</h1>
+
+      <div class="auth-view" id="authViewDisabled" style="display:none">
+        <p class="auth-hint">O login ainda não foi configurado neste aplicativo (faltam as chaves do Firebase em <code>config/firebaseConfig.js</code>). Fale com quem administra o app.</p>
+      </div>
+
+      <div class="auth-view" id="authViewWelcome">
+        <p class="auth-tagline">Seu atlas de anatomia pessoal — crie uma conta pra estudar de qualquer aparelho, com seu progresso sempre salvo.</p>
+        <div class="home-menu">
+          <button type="button" class="home-btn primary" id="authGoLogin">Entrar</button>
+          <button type="button" class="home-btn" id="authGoSignup">Criar conta</button>
+        </div>
+      </div>
+
+      <div class="auth-view" id="authViewLogin" style="display:none">
+        <h2 class="screen-title">Entrar</h2>
+        <form class="auth-form" id="loginForm">
+          <label>E-mail<input type="email" id="loginEmail" autocomplete="email" required></label>
+          <label>Senha<input type="password" id="loginPassword" autocomplete="current-password" required></label>
+          <label class="auth-checkbox"><input type="checkbox" id="loginRemember" checked> Lembrar de mim</label>
+          <p class="auth-error" id="loginError"></p>
+          <button type="submit" class="home-btn primary">Entrar</button>
+        </form>
+        <button type="button" class="back-home" id="authGoForgot">Esqueci minha senha</button>
+        <button type="button" class="back-home" id="loginGoSignup">Criar conta</button>
+        <button type="button" class="back-home" id="loginBack">← Voltar</button>
+      </div>
+
+      <div class="auth-view" id="authViewSignup" style="display:none">
+        <h2 class="screen-title">Criar conta</h2>
+        <form class="auth-form" id="signupForm">
+          <label class="auth-photo-label">
+            Foto de perfil (opcional)
+            <div class="auth-photo-row">
+              <div class="auth-photo-preview" id="signupPhotoPreview">👤</div>
+              <input type="file" id="signupPhoto" accept="image/png,image/jpeg,image/webp">
+            </div>
+          </label>
+          <label>Nome<input type="text" id="signupName" autocomplete="name" required></label>
+          <label>Telefone (opcional)<input type="tel" id="signupPhone" autocomplete="tel"></label>
+          <label>E-mail<input type="email" id="signupEmail" autocomplete="email" required></label>
+          <label>Senha<input type="password" id="signupPassword" autocomplete="new-password" minlength="6" required></label>
+          <label>Confirmar senha<input type="password" id="signupPasswordConfirm" autocomplete="new-password" minlength="6" required></label>
+          <label class="auth-checkbox"><input type="checkbox" id="signupTerms" required> Li e aceito os <button type="button" class="auth-link" id="openTerms">Termos de Uso</button></label>
+          <label class="auth-checkbox"><input type="checkbox" id="signupPrivacy" required> Li e aceito a <button type="button" class="auth-link" id="openPrivacy">Política de Privacidade</button></label>
+          <p class="auth-error" id="signupError"></p>
+          <button type="submit" class="home-btn primary">Criar conta</button>
+        </form>
+        <button type="button" class="back-home" id="signupGoLogin">Já tenho conta</button>
+        <button type="button" class="back-home" id="signupBack">← Voltar</button>
+      </div>
+
+      <div class="auth-view" id="authViewForgot" style="display:none">
+        <h2 class="screen-title">Recuperar senha</h2>
+        <form class="auth-form" id="forgotForm">
+          <label>E-mail<input type="email" id="forgotEmail" autocomplete="email" required></label>
+          <p class="auth-error" id="forgotError"></p>
+          <p class="auth-hint" id="forgotSuccess" style="display:none">Link de redefinição enviado — confira seu e-mail.</p>
+          <button type="submit" class="home-btn primary">Enviar link de redefinição</button>
+        </form>
+        <button type="button" class="back-home" id="forgotBack">← Voltar ao login</button>
+      </div>
+
+      <div class="auth-view" id="authViewVerify" style="display:none">
+        <h2 class="screen-title">Confirme seu e-mail</h2>
+        <p class="auth-hint">Aguardando confirmação do e-mail.</p>
+        <p class="auth-hint" id="verifyEmailAddress"></p>
+        <div class="home-menu">
+          <button type="button" class="home-btn" id="checkVerification">Já confirmei — continuar</button>
+          <button type="button" class="home-btn" id="resendVerification">Reenviar e-mail de confirmação</button>
+          <button type="button" class="home-btn" id="verifyLogout">Sair</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="layout">
-    <div class="skel-wrap" id="skelWrap">
-      <div class="legend">
-        <span><i class="dot d0"></i> não selecionado</span>
-        <span><i class="dot d1"></i> selecionado</span>
-        <span><i class="dot d2"></i> acertado</span>
-        <span><i class="dot d3"></i> errado</span>
+  <div id="screen-home" class="screen" style="display:none">
+    <div class="home-wrap">
+      <div class="home-main">
+        <h1 class="home-logo">Anatomia <em>by</em> ALE</h1>
+        <div class="home-menu">
+          <button type="button" class="home-btn primary" id="btnContinue">Continuar Estudos</button>
+          <button type="button" class="home-btn" id="btnAllBoards">Todas as Pranchas</button>
+          <button type="button" class="home-btn" id="btnFlashcards">📖 Flashcards (Estudo)</button>
+          <button type="button" class="home-btn" id="btnExamMode">📝 Modo Prova</button>
+          <button type="button" class="home-btn" id="btnProfile">👤 Perfil</button>
+          <button type="button" class="home-btn" id="btnStats">Estatísticas</button>
+          <button type="button" class="home-btn" id="btnSettings">Configurações</button>
+        </div>
+      </div>
+      <div class="home-side">
+        <div class="home-side-title">Progresso Geral</div>
+        <div class="home-percent" id="homePercent">0%</div>
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="homeProgressFill"></div></div>
+        <div class="home-progress-text" id="homeProgressText">0 de 0 ossos aprendidos</div>
+
+        <div class="home-side-title xp-title">Nível <span id="homeLevel">1</span></div>
+        <div class="progress-bar-track"><div class="progress-bar-fill xp-fill" id="homeXPFill"></div></div>
+        <div class="home-progress-text" id="homeXPText">0 XP</div>
+
+        <div class="home-stat-row">
+          <span>Pranchas concluídas</span>
+          <span id="homeCompletedBoards">0 de 0</span>
+        </div>
+        <div class="home-stat-row">
+          <span>Tempo estudado</span>
+          <span id="homeTimeStudied">0m</span>
+        </div>
+        <div class="home-stat-row">
+          <span>Sequência de dias</span>
+          <span id="homeStreak">0 dias</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-stats" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromStats">← Início</button>
+    <h2 class="screen-title">Estatísticas</h2>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total de acertos</div>
+        <div class="stat-value" id="statTotalHits">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total de erros</div>
+        <div class="stat-value" id="statTotalMisses">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Taxa de acerto</div>
+        <div class="stat-value" id="statAccuracy">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Tempo estudado</div>
+        <div class="stat-value" id="statTimeStudied">0m</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Melhor prancha</div>
+        <div class="stat-value stat-value-text" id="statBestBoard">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pior prancha</div>
+        <div class="stat-value stat-value-text" id="statWorstBoard">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Última prancha estudada</div>
+        <div class="stat-value stat-value-text" id="statLastBoard">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Maior sequência de acertos</div>
+        <div class="stat-value" id="statBestStreak">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Nível atual</div>
+        <div class="stat-value" id="statLevel">1</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">XP total</div>
+        <div class="stat-value" id="statTotalXP">0</div>
       </div>
     </div>
 
-    <div class="panel" id="panel">
-      <div class="progress">
-        <button class="reset-inline" onclick="resetGame()">↻ Reiniciar progresso</button>
-        <span id="progress">0 / 0</span>
+    <div class="stats-subtitle">Conquistas</div>
+    <div id="achievementCategories" class="achv-categories"></div>
+
+    <div class="stats-subtitle">Detalhe por prancha</div>
+    <div id="statsList" class="stats-list"></div>
+  </div>
+
+  <div id="screen-settings" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromSettings">← Início</button>
+    <h2 class="screen-title">Configurações</h2>
+
+    <div class="stats-subtitle">Aparência</div>
+    <div class="settings-row">
+      <button type="button" class="home-btn" id="btnLightMode">☀️ Modo claro</button>
+      <button type="button" class="home-btn" id="btnDarkMode">🌙 Modo escuro</button>
+    </div>
+
+    <div class="stats-subtitle">Som</div>
+    <div class="settings-row">
+      <button type="button" class="home-btn" id="btnSoundOn">🔊 Sons ativados</button>
+      <button type="button" class="home-btn" id="btnSoundOff">🔇 Sons desativados</button>
+    </div>
+
+    <div class="stats-subtitle">Trilha sonora</div>
+    <div class="settings-row">
+      <button type="button" class="home-btn" id="btnMusicOn">🎵 Música ativada</button>
+      <button type="button" class="home-btn" id="btnMusicOff">🔇 Música desativada</button>
+    </div>
+    <p class="settings-hint">Música ambiente instrumental, bem baixinha, pra estudar. Fica desligada até você ligar aqui.</p>
+
+    <div class="stats-subtitle">Progresso</div>
+    <div class="home-menu settings-menu">
+      <button type="button" class="home-btn" id="btnExport">⬇ Exportar progresso</button>
+      <button type="button" class="home-btn" id="btnImport">⬆ Importar progresso</button>
+      <button type="button" class="home-btn" id="btnResetAchievements">🏆 Resetar conquistas</button>
+      <button type="button" class="home-btn" id="btnResetAll">↻ Limpar progresso</button>
+    </div>
+    <input type="file" id="importFileInput" accept="application/json,.json" style="display:none">
+    <p class="settings-hint">"Limpar progresso" apaga tudo — pranchas, tempo estudado, sequências, conquistas e XP. Não dá pra desfazer (a menos que você tenha exportado antes).</p>
+  </div>
+
+  <div id="screen-profile" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromProfile">← Início</button>
+    <h2 class="screen-title">Meu Perfil</h2>
+
+    <div class="profile-header">
+      <div class="profile-photo" id="profilePhoto">👤</div>
+      <div class="profile-header-text">
+        <div class="profile-name" id="profileName">—</div>
+        <div class="profile-title" id="profileTitle" style="display:none"></div>
+        <div class="profile-meta" id="profileEmail">—</div>
+        <div class="profile-meta" id="profilePhone" style="display:none"></div>
+        <div class="profile-meta" id="profileCreated"></div>
       </div>
-      <p class="instructions" id="instructions"></p>
+    </div>
 
-      <div id="puzzleArea"></div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Nível</div><div class="stat-value" id="profileLevel">1</div></div>
+      <div class="stat-card"><div class="stat-label">XP</div><div class="stat-value" id="profileXP">0</div></div>
+      <div class="stat-card"><div class="stat-label">Sequência de dias</div><div class="stat-value" id="profileStreak">0</div></div>
+      <div class="stat-card"><div class="stat-label">Precisão geral</div><div class="stat-value" id="profileAccuracy">0%</div></div>
+      <div class="stat-card"><div class="stat-label">Tempo estudado</div><div class="stat-value stat-value-text" id="profileTimeStudied">0m</div></div>
+      <div class="stat-card"><div class="stat-label">Pranchas concluídas</div><div class="stat-value" id="profileBoardsCompleted">0</div></div>
+      <div class="stat-card"><div class="stat-label">Conquistas desbloqueadas</div><div class="stat-value" id="profileAchievements">0</div></div>
+    </div>
 
-      <div class="winMsg" id="winMsg">Você identificou todos os ossos desta prancha. Parabéns!</div>
+    <div class="stats-subtitle">Configurações da conta</div>
+    <div class="home-menu settings-menu">
+      <button type="button" class="home-btn" id="btnAccountChangePhoto">🖼 Alterar foto</button>
+      <button type="button" class="home-btn" id="btnAccountChangeName">✏️ Alterar nome</button>
+      <button type="button" class="home-btn" id="btnAccountChangePhone">📱 Alterar telefone</button>
+      <button type="button" class="home-btn" id="btnAccountChangeEmail">📧 Alterar e-mail</button>
+      <button type="button" class="home-btn" id="btnAccountChangePassword">🔒 Alterar senha</button>
+      <button type="button" class="home-btn" id="btnLogout">↪ Sair</button>
+      <button type="button" class="home-btn" id="btnDeleteAccount">🗑 Excluir conta</button>
+    </div>
+    <input type="file" id="accountPhotoInput" accept="image/png,image/jpeg,image/webp" style="display:none">
+    <p class="settings-hint" id="accountActionError"></p>
+  </div>
 
-      <div class="listTitle">Lista numerada</div>
-      <div class="boneList" id="boneList"></div>
+  <div id="screen-boards" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromBoards">← Início</button>
+    <h1>Bone Anatomy</h1>
+
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="main">Todos os ossos</button>
+      <button class="tab" data-tab="upper">Ossos superiores</button>
+      <button class="tab" data-tab="braco">Ossos do braço</button>
+      <button class="tab" data-tab="torax">Tórax</button>
+      <button class="tab" data-tab="inferior">Membros inferiores</button>
+      <button class="tab" data-tab="mao">Ossos da mão</button>
+      <button class="tab" data-tab="pe">Ossos do pé</button>
+      <button class="tab" data-tab="coluna">Coluna vertebral</button>
+    </div>
+
+    <div class="layout">
+      <div class="skel-wrap" id="skelWrap">
+        <div class="legend">
+          <span><i class="dot d0"></i> não selecionado</span>
+          <span><i class="dot d1"></i> selecionado</span>
+          <span><i class="dot d2"></i> acertado</span>
+          <span><i class="dot d3"></i> errado</span>
+        </div>
+      </div>
+
+      <div class="panel" id="panel">
+        <div class="progress">
+          <button class="reset-inline" onclick="resetGame()">↻ Reiniciar progresso</button>
+          <button class="reset-inline" id="reviewBtn" onclick="startReview()" style="display:none">🔍 Revisar</button>
+          <span id="progress">0 / 0</span>
+        </div>
+        <p class="instructions" id="instructions"></p>
+
+        <div id="puzzleArea"></div>
+
+        <div class="winMsg" id="winMsg">Você identificou todos os ossos desta prancha. Parabéns!</div>
+
+        <div class="listTitle">Lista numerada</div>
+        <div class="boneList" id="boneList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-flashcards" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromFlashcards">← Início</button>
+    <h2 class="screen-title">Flashcards — Atlas de Estudo</h2>
+    <p class="exam-intro">Navegue livremente por qualquer prancha e veja nome, grupo, descrição e função de cada osso — sem pontuação, sem cronômetro, sem certo ou errado. Só para aprender antes de encarar os desafios.</p>
+
+    <div class="tabs" id="flashTabs"></div>
+
+    <div class="flash-toolbar">
+      <input type="text" id="flashSearchInput" class="flash-search-input" placeholder="Buscar osso nesta prancha… (ex.: Fêmur)" autocomplete="off">
+      <div class="flash-view-modes" id="flashViewModes">
+        <button type="button" class="home-btn" data-flash-view="image">Imagem</button>
+        <button type="button" class="home-btn" data-flash-view="list">Imagem + Lista</button>
+        <button type="button" class="home-btn primary" data-flash-view="info">Imagem + Info</button>
+      </div>
+    </div>
+
+    <div class="flash-layout">
+      <div class="flash-skel-wrap" id="flashSkelWrap"></div>
+      <div class="flash-side" id="flashSide"></div>
+    </div>
+
+    <div class="flash-nav">
+      <button type="button" class="reset-inline" id="flashPrev">← Osso anterior</button>
+      <span class="flash-position" id="flashPosition">1 / 1</span>
+      <button type="button" class="reset-inline" id="flashNext">Próximo osso →</button>
+    </div>
+  </div>
+
+  <div id="screen-examSetup" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromExamSetup">← Início</button>
+    <h2 class="screen-title">Modo Prova</h2>
+    <p class="exam-intro">Sem respostas visíveis, sem progresso e sem ajuda. Escolha uma prancha — o cronômetro roda até a última questão, e no final você vê a nota, o tempo, os acertos, os erros e o seu ranking pessoal.</p>
+    <div class="home-menu" id="examBoardList"></div>
+  </div>
+
+  <div id="screen-exam" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromExam">← Cancelar prova</button>
+    <div class="exam-hud">
+      <span id="examQuestionCount">Questão 1 de 1</span>
+      <span id="examTimer">0m 00s</span>
+    </div>
+    <div class="exam-skel-wrap" id="examSkelWrap"></div>
+    <form class="exam-answer-row" id="examAnswerForm" autocomplete="off">
+      <input type="text" id="examInput" class="exam-input" placeholder="Digite o nome do osso" autocomplete="off" spellcheck="false">
+      <button type="submit" class="home-btn primary">Responder</button>
+    </form>
+  </div>
+
+  <div id="screen-examResult" class="screen" style="display:none">
+    <h2 class="screen-title">Prova concluída</h2>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Nota</div>
+        <div class="stat-value" id="examResultScore">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Tempo</div>
+        <div class="stat-value stat-value-text" id="examResultTime">0m</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Acertos</div>
+        <div class="stat-value" id="examResultHits">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Erros</div>
+        <div class="stat-value" id="examResultMisses">0</div>
+      </div>
+    </div>
+    <div class="stats-subtitle">Ranking pessoal — <span id="examResultBoardName"></span></div>
+    <div class="exam-ranking" id="examRankingList"></div>
+    <div class="modal-buttons exam-result-buttons">
+      <button type="button" class="home-btn" id="examRepeat">Repetir prova</button>
+      <button type="button" class="home-btn primary" id="examBackHome">Voltar ao menu</button>
+    </div>
+  </div>
+
+  <div class="plate-footer">
+    <span class="plate-footer-rule"></span>
+    <span class="page-number" id="pageNumber">— 1 —</span>
+  </div>
+</div>
+
+<div id="completionModal" class="modal-backdrop" style="display:none">
+  <div class="modal-card">
+    <div class="modal-check">✅</div>
+    <h2 class="modal-title">Prancha concluída</h2>
+    <div class="modal-board-name" id="completionBoardName"></div>
+    <div class="modal-stats">
+      <div class="modal-stat">
+        <span class="modal-stat-label">Tempo</span>
+        <span class="modal-stat-value" id="completionTime">0m</span>
+      </div>
+      <div class="modal-stat">
+        <span class="modal-stat-label">Acertos</span>
+        <span class="modal-stat-value" id="completionHits">0</span>
+      </div>
+      <div class="modal-stat">
+        <span class="modal-stat-label">Erros</span>
+        <span class="modal-stat-value" id="completionMisses">0</span>
+      </div>
+      <div class="modal-stat">
+        <span class="modal-stat-label">Precisão</span>
+        <span class="modal-stat-value" id="completionAccuracy">0%</span>
+      </div>
+      <div class="modal-stat modal-stat-xp">
+        <span class="modal-stat-label">XP recebido</span>
+        <span class="modal-stat-value" id="completionXP">+0 XP</span>
+      </div>
+    </div>
+    <div class="modal-buttons">
+      <button type="button" class="home-btn" id="completionRepeat">Repetir</button>
+      <button type="button" class="home-btn primary" id="completionNext">Próxima prancha</button>
+      <button type="button" class="home-btn" id="completionMenu">Voltar ao menu</button>
     </div>
   </div>
 </div>
 
+<div id="accountEditModal" class="modal-backdrop" style="display:none">
+  <div class="modal-card">
+    <h2 class="modal-title" id="accountEditTitle">Editar</h2>
+    <form class="auth-form" id="accountEditForm">
+      <label id="accountEditLabel1Wrap">
+        <span id="accountEditLabel1">Valor</span>
+        <input type="text" id="accountEditInput1">
+      </label>
+      <label id="accountEditLabel2Wrap" style="display:none">
+        <span id="accountEditLabel2">Confirmar</span>
+        <input type="text" id="accountEditInput2">
+      </label>
+      <label id="accountEditLabel3Wrap" style="display:none">
+        <span id="accountEditLabel3">Senha atual</span>
+        <input type="password" id="accountEditInput3" autocomplete="current-password">
+      </label>
+      <p class="auth-error" id="accountEditError"></p>
+      <div class="modal-buttons">
+        <button type="submit" class="home-btn primary">Salvar</button>
+        <button type="button" class="home-btn" id="accountEditCancel">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="legalModal" class="modal-backdrop" style="display:none">
+  <div class="modal-card legal-modal-card">
+    <h2 class="modal-title" id="legalModalTitle">Termos de Uso</h2>
+    <div class="legal-modal-body" id="legalModalBody"></div>
+    <div class="modal-buttons">
+      <button type="button" class="home-btn primary" id="legalModalClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script src="utils/dateUtils.js"></script>
+<script src="services/progressService.js"></script>
+<script src="services/achievementService.js"></script>
+<script src="services/examService.js"></script>
+<script src="services/flashcardService.js"></script>
+<script src="services/authService.js"></script>
+<script src="js/soundManager.js"></script>
+<script src="js/musicManager.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
