@@ -45,7 +45,7 @@ const GAMES = {
         {key:"temporal",  word:"TEMPORAL",  label:"Osso temporal",     x:63,   y:27},
         {key:"nasal",     word:"NASAL",     label:"Osso nasal",        x:49,   y:28},
         {key:"zigomatico",word:"ZIGOMATICO",label:"Osso zigomático",   x:40,   y:34},
-        {key:"maxilar",    word:"MAXILAR",    label:"Maxilar",            x:54,   y:37},
+        {key:"maxila",    word:"MAXILA",    label:"Maxila",            x:54,   y:37},
         {key:"mandibula2",word:"MANDIBULA", label:"Mandíbula",         x:49,   y:48},
         {key:"cervical2", word:"CERVICAL", label:"Vértebras cervicais", x:49,  y:60},
         {key:"clavicula2",word:"CLAVICULA", label:"Clavícula",         x:30,   y:66},
@@ -148,8 +148,8 @@ const GAMES = {
       {key:"calcaneo",          word:"CALCANEO",     label:"Calcâneo",                 x:18, y:44},
       {key:"navicular",         word:"NAVICULAR",    label:"Navicular (Escafoide)",    x:44, y:39.5},
       {key:"cuneiformeMedial",  word:"CUNEIFORMEMEDIAL",       label:"Cuneiforme Medial",        x:56.6, y:41.3},
-      {key:"cuneiformeInter",   word:"CUNEIFORMEINTERMEDIAL",   label:"Cuneiforme Intermédio",    x:44.0, y:45},
-      {key:"cuneiformeLateral", word:"CUNEIFORMELATERAL",      label:"Cuneiforme Lateral",       x:50, y:43},
+      {key:"cuneiformeLateral",   word:"CUNEIFORMELATERAL",   label:"Cuneiforme Lateral",    x:44.0, y:45},
+      {key:"cuneiformeIntermedial", word:"CUNEIFORMEINTERMEDIAL",      label:"Cuneiforme Intermédio",       x:50, y:43},
       {key:"cuboide",           word:"CUBOIDE",      label:"Cuboide",                  x:35, y:47},
       {key:"metatarso3",        word:"METATARSO",    label:"Metatarso",                x:52.5, y:55.5},
       {key:"falangeProximalPe", word:"FALANGEPROXIMAL",     label:"Falange proximal",         x:45, y:70},
@@ -470,7 +470,10 @@ const ALL_STORAGE_KEYS = [
   'anatomiaByAleMusicV1',
   'anatomiaByAleExamHistoryV1',
   'anatomiaByAleFlashFavoritesV1',
-  'anatomiaByAleFlashHistoryV1'
+  'anatomiaByAleFlashHistoryV1',
+  'anatomiaByAleIdentifyStatsV1',
+  'anatomiaByAleLocateStatsV1',
+  'anatomiaByAleLocateCompletedV1'
 ];
 
 function exportProgress(){
@@ -555,7 +558,8 @@ const ACHIEVEMENT_CATEGORIES = [
   { id:'learning',    title:'🥇 Medalhas de Aprendizagem' },
   { id:'progress',    title:'📚 Conquistas de Progresso' },
   { id:'masters',     title:'🎓 Mestres da Anatomia' },
-  { id:'performance', title:'⚡ Desempenho' }
+  { id:'performance', title:'⚡ Desempenho' },
+  { id:'locate',      title:'📍 Modo Localizar' }
 ];
 
 const ACHIEVEMENTS = [
@@ -654,7 +658,31 @@ const ACHIEVEMENTS = [
   { id:'exam_perfection', category:'performance', icon:'👑', name:'Perfeição',
     description:'Complete um Modo Prova com 100% de acertos.', xp:300,
     check: () => hasExamPerfectScore(),
-    progress: () => ({ current: hasExamPerfectScore() ? 1 : 0, target: 1 }) }
+    progress: () => ({ current: hasExamPerfectScore() ? 1 : 0, target: 1 }) },
+
+  // ---- Categoria 5 — Modo Localizar ----
+  { id:'locate_first', category:'locate', icon:'📍', name:'Primeiro Localizado',
+    description:'Localize corretamente seu primeiro osso.', xp:100,
+    check: () => ProgressService.getLocateStats().hits >= 1,
+    progress: () => ({ current: ProgressService.getLocateStats().hits, target: 1 }) },
+  { id:'locate_25', category:'locate', icon:'🎯', name:'Caçador de Ossos',
+    description:'Localize 25 ossos.', xp:150,
+    check: () => ProgressService.getLocateStats().hits >= 25,
+    progress: () => ({ current: ProgressService.getLocateStats().hits, target: 25 }) },
+  { id:'locate_100', category:'locate', icon:'🧭', name:'Navegador Anatômico',
+    description:'Localize 100 ossos.', xp:250,
+    check: () => ProgressService.getLocateStats().hits >= 100,
+    progress: () => ({ current: ProgressService.getLocateStats().hits, target: 100 }) },
+  { id:'locate_master', category:'locate', icon:'👑', name:'Mestre da Localização',
+    description:'Complete todas as categorias no modo Localizar.', xp:500, special:true,
+    check: () => {
+      const done = ProgressService.getLocateCompletedCategories();
+      return Object.keys(GAMES).every(gk => done.includes(gk));
+    },
+    progress: () => {
+      const done = ProgressService.getLocateCompletedCategories();
+      return { current: Object.keys(GAMES).filter(gk=>done.includes(gk)).length, target: Object.keys(GAMES).length };
+    } }
 ];
 
 // AchievementService.init() precisa da lista ACHIEVEMENTS já pronta
@@ -1108,11 +1136,13 @@ function submitGuess(){
     ProgressService.registerCorrectAnswer();
     SoundManager.play('correct');
     ProgressService.addXP(XP_PER_CORRECT);
+    ProgressService.addIdentifyXP(XP_PER_CORRECT);
     document.getElementById('instructions').textContent = '✓ Correto! Era ' + labelFor(key) + '.';
     updateProgress();
     refreshVisualStates();
     if(game.solved.size === uniqueBoneCount(game)){
       ProgressService.addXP(XP_BOARD_COMPLETE + XP_PERFECT_BONUS);
+      ProgressService.addIdentifyXP(XP_BOARD_COMPLETE + XP_PERFECT_BONUS);
       setTimeout(()=>showCompletionModal(gameKey), 900);
     } else {
       setTimeout(()=>advanceToNextBone(gameKey, key), 900);
@@ -1310,6 +1340,9 @@ function resetAllProgress(){
   ProgressService.clearLastBoard();
   ProgressService.clearCorrectStreak();
   ProgressService.clearXP();
+  ProgressService.clearIdentifyStats();
+  ProgressService.clearLocateStats();
+  ProgressService.clearLocateCompletedCategories();
   AchievementService.resetAll();
   Object.keys(GAMES).forEach(k=>{
     GAMES[k].solved = new Set();
@@ -1339,7 +1372,7 @@ function resetAchievements(){
 let _currentScreen = 'home';
 
 function showScreen(name){
-  ['auth','home','boards','flashcards','stats','settings','profile','examSetup','exam','examResult'].forEach(s=>{
+  ['auth','home','boards','flashcards','stats','settings','profile','admin','modes','locateSetup','locate','examSetup','exam','examResult'].forEach(s=>{
     const el = document.getElementById('screen-'+s);
     if(el) el.style.display = (s===name) ? '' : 'none';
   });
@@ -1356,6 +1389,16 @@ function showScreen(name){
   } else if(name === 'profile'){
     document.getElementById('plateLabel').textContent = 'Meu Perfil';
     renderProfileScreen();
+  } else if(name === 'admin'){
+    document.getElementById('plateLabel').textContent = 'Modo Admin';
+    renderAdminScreen();
+  } else if(name === 'modes'){
+    document.getElementById('plateLabel').textContent = 'Modos de Jogo';
+  } else if(name === 'locateSetup'){
+    document.getElementById('plateLabel').textContent = 'Localizar o Osso';
+    renderLocateSetup();
+  } else if(name === 'locate'){
+    document.getElementById('plateLabel').textContent = 'Localizar o Osso';
   } else if(name === 'flashcards'){
     document.getElementById('plateLabel').textContent = 'Flashcards';
   } else if(name === 'examSetup'){
@@ -1369,24 +1412,21 @@ function showScreen(name){
   } else if(name === 'auth'){
     document.getElementById('plateLabel').textContent = 'Entrar';
   }
-  if(name === 'stats' || name === 'settings' || name === 'profile' || name === 'flashcards' || name === 'examSetup' || name === 'examResult') SoundManager.play('menu');
+  if(name === 'stats' || name === 'settings' || name === 'profile' || name === 'admin' || name === 'modes' || name === 'locateSetup' || name === 'flashcards' || name === 'examSetup' || name === 'examResult') SoundManager.play('menu');
   // Modo Prova pede "sem progresso"; Flashcards pede o mesmo (sem
-  // pontuação/XP/progresso visível); na tela de login ainda não existe
-  // usuário — a barra superior some nessas telas e volta normal em
-  // qualquer outra.
-  document.getElementById('topBar').style.display = (name === 'exam' || name === 'flashcards' || name === 'auth') ? 'none' : '';
+  // pontuação/XP/progresso visível); o Localizar mostra os próprios
+  // números no HUD da tela, então some a barra também; na tela de login
+  // ainda não existe usuário — a barra superior some nessas telas e
+  // volta normal em qualquer outra.
+  document.getElementById('topBar').style.display = (name === 'exam' || name === 'flashcards' || name === 'locate' || name === 'auth') ? 'none' : '';
   if(name !== 'auth') renderTopBar();
   // Numeração de página decorativa, no rodapé — só estética, não é uma
   // paginação real (o app inteiro é uma página só).
-  const PAGE_NUMBERS = {home:1, boards:2, flashcards:3, stats:4, settings:5, profile:6, examSetup:7, exam:8, examResult:9};
+  const PAGE_NUMBERS = {home:1, boards:2, flashcards:3, stats:4, settings:5, profile:6, admin:7, modes:8, locateSetup:9, locate:10, examSetup:11, exam:12, examResult:13};
   const pageEl = document.getElementById('pageNumber');
   if(pageEl) pageEl.textContent = '— ' + (PAGE_NUMBERS[name] || 1) + ' —';
 }
 
-function goContinueStudies(){
-  showScreen('boards');
-  switchTab(ProgressService.getLastBoard());
-}
 function goAllBoards(){
   showScreen('boards');
   switchTab('main');
@@ -1432,6 +1472,19 @@ function renderStatsScreen(){
   const xpProgress = ProgressService.getXPProgress();
   document.getElementById('statLevel').textContent = xpProgress.level;
   document.getElementById('statTotalXP').textContent = xpProgress.xp;
+
+  // Identificar já usa os agregados globais (hoje 100% vindos desse
+  // modo) pra precisão/tempo; só o XP precisa de um contador próprio,
+  // já que o total geral agora mistura os dois modos.
+  document.getElementById('statIdentifyAccuracy').textContent = getAccuracyRate() + '%';
+  document.getElementById('statIdentifyTime').textContent = formatDurationLong(getTotalTimeSpentMs());
+  document.getElementById('statIdentifyXP').textContent = ProgressService.getIdentifyStats().xp;
+
+  const locateStats = ProgressService.getLocateStats();
+  const locateAttempted = locateStats.hits + locateStats.misses;
+  document.getElementById('statLocateAccuracy').textContent = (locateAttempted ? Math.round((locateStats.hits/locateAttempted)*100) : 0) + '%';
+  document.getElementById('statLocateTime').textContent = formatDurationLong(locateStats.timeMs);
+  document.getElementById('statLocateXP').textContent = locateStats.xp;
 
   renderAchievementCategories();
 
@@ -1872,6 +1925,9 @@ function handleAuthChange(user){
   if(!user){
     StorageService.clearUserScope();
     resetInMemoryGameState();
+    _isAdmin = false;
+    const adminBtn = document.getElementById('btnAdmin');
+    if(adminBtn) adminBtn.style.display = 'none';
     showAuthView('welcome');
     showScreen('auth');
     return;
@@ -1885,6 +1941,8 @@ function handleAuthChange(user){
   // Logado e com e-mail confirmado: sincroniza a nuvem pro navegador
   // antes de mostrar qualquer tela do app.
   StorageService.setUserScope(user.uid);
+  AuthService.ensureUserIndexed();
+  checkAdminStatus();
   StorageService.hydrateFromCloud(user.uid)
     .then(()=> AuthService.getProfile())
     .then(profile=>{
@@ -1892,6 +1950,94 @@ function handleAuthChange(user){
       bootAppData();
       showScreen('home');
     });
+}
+
+// ---- Modo Admin ----
+let _isAdmin = false;
+function checkAdminStatus(){
+  AuthService.isCurrentUserAdmin().then(isAdmin=>{
+    _isAdmin = isAdmin;
+    const btn = document.getElementById('btnAdmin');
+    if(btn) btn.style.display = _isAdmin ? '' : 'none';
+  });
+}
+
+function renderAdminScreen(){
+  const listEl = document.getElementById('adminUserList');
+  listEl.innerHTML = '<p class="auth-hint">Carregando usuários…</p>';
+  AuthService.listAllUsers().then(users=>{
+    if(!users.length){
+      listEl.innerHTML = '<p class="auth-hint">Nenhum usuário cadastrado ainda.</p>';
+      return;
+    }
+    listEl.innerHTML = users.map(u=>
+      '<div class="admin-user-row" data-uid="' + u.uid + '">' +
+        '<div class="admin-user-main"><strong>' + (u.name || 'Sem nome') + '</strong><span>' + (u.email || '—') + '</span></div>' +
+        '<div class="admin-user-meta">Criada em ' + (u.createdAt || '—') + '</div>' +
+      '</div>'
+    ).join('');
+    listEl.querySelectorAll('.admin-user-row').forEach(row=>{
+      row.addEventListener('click', ()=> toggleAdminUserDetail(row));
+    });
+  }).catch(()=>{
+    listEl.innerHTML = '<p class="auth-error">Não consegui carregar a lista de usuários.</p>';
+  });
+}
+
+// Alterna (e carrega sob demanda, só na primeira vez) o detalhe de
+// progresso de um usuário — evita puxar tudo de todo mundo de uma vez
+// só pra montar a listagem.
+function toggleAdminUserDetail(row){
+  let detail = row.querySelector('.admin-user-detail');
+  if(detail){
+    detail.style.display = (detail.style.display === 'none') ? '' : 'none';
+    return;
+  }
+  const uid = row.dataset.uid;
+  detail = document.createElement('div');
+  detail.className = 'admin-user-detail';
+  detail.innerHTML = '<p class="auth-hint">Carregando progresso…</p>';
+  row.appendChild(detail);
+
+  Promise.all([
+    AuthService.getUserProfile(uid),
+    AuthService.getUserDataDoc(uid, 'anatomiaByAleXPV1'),
+    AuthService.getUserDataDoc(uid, 'anatomiaByAleBoardProgressV1'),
+    AuthService.getUserDataDoc(uid, 'anatomiaByAleAchievementsV1'),
+    AuthService.getUserDataDoc(uid, 'anatomiaByAleStreakV1')
+  ]).then(([profile, xpRaw, boardsRaw, achRaw, streakRaw])=>{
+    const xp = xpRaw ? (parseInt(xpRaw, 10) || 0) : 0;
+    const level = ProgressService.getLevelForXP(xp);
+
+    let boardsCompleted = 0, boardsTotal = 0;
+    if(boardsRaw){
+      try {
+        const bp = JSON.parse(boardsRaw);
+        boardsTotal = Object.keys(bp).length;
+        boardsCompleted = Object.values(bp).filter(b=>b.status==='Concluído').length;
+      } catch(e){}
+    }
+    let achievementsCount = 0;
+    if(achRaw){
+      try { achievementsCount = JSON.parse(achRaw).length; } catch(e){}
+    }
+    let streak = 0;
+    if(streakRaw){
+      try { streak = JSON.parse(streakRaw).streak || 0; } catch(e){}
+    }
+
+    detail.innerHTML =
+      '<div class="admin-detail-grid">' +
+        '<div><span class="admin-detail-label">Telefone</span><span>' + ((profile && profile.phone) || '—') + '</span></div>' +
+        '<div><span class="admin-detail-label">Nível</span><span>' + level + '</span></div>' +
+        '<div><span class="admin-detail-label">XP</span><span>' + xp + '</span></div>' +
+        '<div><span class="admin-detail-label">Pranchas concluídas</span><span>' + boardsCompleted + ' de ' + boardsTotal + '</span></div>' +
+        '<div><span class="admin-detail-label">Conquistas</span><span>' + achievementsCount + '</span></div>' +
+        '<div><span class="admin-detail-label">Sequência de dias</span><span>' + streak + '</span></div>' +
+      '</div>';
+  }).catch(()=>{
+    detail.innerHTML = '<p class="auth-error">Não consegui carregar os detalhes desse usuário.</p>';
+  });
 }
 
 // Redimensiona/comprime uma foto enviada pelo usuário (canvas, sem
@@ -2035,6 +2181,176 @@ function openLegalModal(kind){
   document.getElementById('legalModal').style.display = 'flex';
 }
 
+// ============================================================
+// MODOS DE JOGO — tela hub (Identificar / Localizar / Modo Prova) e o
+// Modo Localizar em si. O modo Identificar (o jogo clássico) e o Modo
+// Prova continuam 100% iguais — só ganharam mais uma porta de entrada
+// por aqui, além dos atalhos que já existiam na Home.
+// ============================================================
+const XP_LOCATE_CORRECT = 10;
+const XP_LOCATE_COMPLETE = 100;
+
+function goModes(){
+  showScreen('modes');
+}
+
+// ---- Modo Localizar ----
+let locateState = null; // {gameKey, queue:[{key,word,label,x,y,img,yStart?,yEnd?}], index, hits, misses, streak, xp, startedAt}
+let _locateTimerInterval = null;
+
+function renderLocateSetup(){
+  const wrap = document.getElementById('locateBoardList');
+  wrap.innerHTML = Object.keys(GAMES).map(gameKey=>
+    '<button type="button" class="home-btn" data-locate-board="' + gameKey + '">' + GAMES[gameKey].title + '</button>'
+  ).join('');
+  wrap.querySelectorAll('[data-locate-board]').forEach(btn=>{
+    btn.addEventListener('click', ()=>startLocate(btn.dataset.locateBoard));
+  });
+}
+
+function startLocate(gameKey){
+  const game = GAMES[gameKey];
+  const seen = new Set();
+  const bones = [];
+  game.views.forEach(view=>{
+    view.bones.forEach(b=>{
+      if(seen.has(b.key)) return;
+      seen.add(b.key);
+      bones.push(Object.assign({}, b, { img: view.img }));
+    });
+  });
+  locateState = {
+    gameKey,
+    queue: shuffledArray(bones),
+    index: 0,
+    hits: 0,
+    misses: 0,
+    streak: 0,
+    xp: 0,
+    startedAt: Date.now()
+  };
+  showScreen('locate');
+  renderLocateRound();
+  clearInterval(_locateTimerInterval);
+  _locateTimerInterval = setInterval(updateLocateTimerDisplay, 500);
+}
+
+function updateLocateTimerDisplay(){
+  if(!locateState) return;
+  document.getElementById('locateTime').textContent = formatDuration(Date.now() - locateState.startedAt);
+}
+
+function renderLocateRound(){
+  const q = locateState.queue[locateState.index];
+  document.getElementById('locateTargetName').textContent = q.label;
+  renderLocateSkeleton();
+  updateLocateHud();
+}
+
+// Os marcadores existem pra TODOS os ossos da categoria (não só o
+// alvo) — clicar em qualquer um deles é uma tentativa; clicar fora não
+// faz nada (não há osso ali). O número/nome nunca aparece — é isso
+// que torna o modo sobre memória espacial, não sobre reconhecimento.
+function renderLocateSkeleton(){
+  const wrap = document.getElementById('locateSkelWrap');
+  wrap.innerHTML = '';
+  const game = GAMES[locateState.gameKey];
+  game.views.forEach(view=>{
+    const inner = document.createElement('div');
+    inner.className = 'locate-skel-inner';
+    const img = document.createElement('img');
+    img.src = view.img;
+    img.alt = 'Esqueleto humano';
+    inner.appendChild(img);
+    view.bones.forEach(b=>{
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'locate-marker';
+      el.style.left = b.x + '%';
+      el.style.top = b.y + '%';
+      el.dataset.boneKey = b.key;
+      el.setAttribute('aria-label', 'Ponto na imagem');
+      el.addEventListener('click', ()=>handleLocateClick(el, b.key));
+      inner.appendChild(el);
+    });
+    wrap.appendChild(inner);
+  });
+}
+
+function handleLocateClick(el, clickedKey){
+  if(!locateState) return;
+  const q = locateState.queue[locateState.index];
+  if(clickedKey === q.key){
+    locateState.hits++;
+    locateState.streak++;
+    ProgressService.registerLocateResult(true);
+    ProgressService.addXP(XP_LOCATE_CORRECT);
+    ProgressService.addLocateXP(XP_LOCATE_CORRECT);
+    locateState.xp += XP_LOCATE_CORRECT;
+    SoundManager.play('correct');
+    el.classList.add('correct');
+    updateLocateHud();
+    checkAchievements();
+    setTimeout(advanceLocate, 700);
+  } else {
+    locateState.misses++;
+    locateState.streak = 0;
+    ProgressService.registerLocateResult(false);
+    SoundManager.play('wrong');
+    el.classList.add('wrong');
+    setTimeout(()=> el.classList.remove('wrong'), 500);
+    updateLocateHud();
+  }
+}
+
+function advanceLocate(){
+  locateState.index++;
+  if(locateState.index >= locateState.queue.length){
+    finishLocateRound();
+  } else {
+    renderLocateRound();
+  }
+}
+
+function updateLocateHud(){
+  document.getElementById('locateHits').textContent = locateState.hits;
+  document.getElementById('locateMisses').textContent = locateState.misses;
+  document.getElementById('locateStreak').textContent = locateState.streak;
+  document.getElementById('locateXP').textContent = locateState.xp;
+}
+
+function finishLocateRound(){
+  clearInterval(_locateTimerInterval);
+  const timeMs = Date.now() - locateState.startedAt;
+  ProgressService.addLocateTimeMs(timeMs);
+  ProgressService.addXP(XP_LOCATE_COMPLETE);
+  ProgressService.addLocateXP(XP_LOCATE_COMPLETE);
+  ProgressService.markLocateCategoryCompleted(locateState.gameKey);
+  locateState.xp += XP_LOCATE_COMPLETE;
+  checkAchievements();
+
+  document.getElementById('locateCompletionBoardName').textContent = GAMES[locateState.gameKey].title;
+  document.getElementById('locateCompletionTime').textContent = formatDuration(timeMs);
+  document.getElementById('locateCompletionHits').textContent = locateState.hits;
+  document.getElementById('locateCompletionMisses').textContent = locateState.misses;
+  const attempted = locateState.hits + locateState.misses;
+  const accuracy = attempted ? Math.round((locateState.hits / attempted) * 100) : 100;
+  document.getElementById('locateCompletionAccuracy').textContent = accuracy + '%';
+  document.getElementById('locateCompletionXP').textContent = '+' + locateState.xp + ' XP';
+  document.getElementById('locateCompletionModal').style.display = 'flex';
+  spawnConfetti();
+  SoundManager.play('complete');
+}
+
+function cancelLocate(){
+  clearInterval(_locateTimerInterval);
+  if(locateState){
+    ProgressService.addLocateTimeMs(Date.now() - locateState.startedAt);
+  }
+  locateState = null;
+  showScreen('modes');
+}
+
 document.addEventListener('keydown', function(e){
   if(!puzzle) return;
   if(e.key==='Enter'){ handleKey('OK'); }
@@ -2046,8 +2362,6 @@ document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click', ()=>switchTab(t.dataset.tab));
 });
 
-document.getElementById('btnContinue').addEventListener('click', goContinueStudies);
-document.getElementById('btnAllBoards').addEventListener('click', goAllBoards);
 document.getElementById('btnStats').addEventListener('click', ()=>showScreen('stats'));
 document.getElementById('btnSettings').addEventListener('click', ()=>showScreen('settings'));
 document.getElementById('backFromStats').addEventListener('click', ()=>showScreen('home'));
@@ -2066,6 +2380,32 @@ renderFlashTabs();
 // ---- Autenticação / Perfil ----
 document.getElementById('btnProfile').addEventListener('click', ()=>showScreen('profile'));
 document.getElementById('backFromProfile').addEventListener('click', ()=>showScreen('home'));
+document.getElementById('btnAdmin').addEventListener('click', ()=>showScreen('admin'));
+document.getElementById('backFromAdmin').addEventListener('click', ()=>showScreen('home'));
+
+document.getElementById('btnModes').addEventListener('click', goModes);
+document.getElementById('backFromModes').addEventListener('click', ()=>showScreen('home'));
+document.getElementById('modeCardIdentify').addEventListener('click', goAllBoards);
+document.getElementById('modeCardLocate').addEventListener('click', ()=>showScreen('locateSetup'));
+document.getElementById('modeCardExam').addEventListener('click', ()=>showScreen('examSetup'));
+document.getElementById('backFromLocateSetup').addEventListener('click', ()=>showScreen('modes'));
+document.getElementById('backFromLocate').addEventListener('click', cancelLocate);
+document.getElementById('locateCompletionRepeat').addEventListener('click', ()=>{
+  document.getElementById('locateCompletionModal').style.display = 'none';
+  startLocate(locateState.gameKey);
+});
+document.getElementById('locateCompletionNext').addEventListener('click', ()=>{
+  document.getElementById('locateCompletionModal').style.display = 'none';
+  const keys = Object.keys(GAMES);
+  const idx = keys.indexOf(locateState.gameKey);
+  const nextKey = keys[(idx + 1) % keys.length];
+  startLocate(nextKey);
+});
+document.getElementById('locateCompletionMenu').addEventListener('click', ()=>{
+  document.getElementById('locateCompletionModal').style.display = 'none';
+  locateState = null;
+  showScreen('modes');
+});
 
 document.getElementById('authGoLogin').addEventListener('click', ()=>showAuthView('login'));
 document.getElementById('authGoSignup').addEventListener('click', ()=>showAuthView('signup'));
@@ -2239,7 +2579,6 @@ document.getElementById('btnDeleteAccount').addEventListener('click', ()=>{
   });
 });
 
-document.getElementById('btnExamMode').addEventListener('click', ()=>showScreen('examSetup'));
 document.getElementById('backFromExamSetup').addEventListener('click', ()=>showScreen('home'));
 document.getElementById('backFromExam').addEventListener('click', cancelExam);
 document.getElementById('examAnswerForm').addEventListener('submit', (e)=>{ e.preventDefault(); submitExamAnswer(); });

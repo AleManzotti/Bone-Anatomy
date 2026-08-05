@@ -10,12 +10,12 @@
 // forem preenchidas — só este.
 // ============================================================
 const FIREBASE_CONFIG = {
-  apiKey: "COLE_AQUI_SUA_API_KEY",
-  authDomain: "COLE_AQUI_SEU_PROJETO.firebaseapp.com",
-  projectId: "COLE_AQUI_SEU_PROJECT_ID",
-  storageBucket: "COLE_AQUI_SEU_PROJETO.appspot.com",
-  messagingSenderId: "COLE_AQUI_SEU_SENDER_ID",
-  appId: "COLE_AQUI_SEU_APP_ID"
+  apiKey: "AIzaSyCO_f20ttH5WbBLZBTan4FUlgS8V0sNwRI",
+  authDomain: "anatomia-by-ale.firebaseapp.com",
+  projectId: "anatomia-by-ale",
+  storageBucket: "anatomia-by-ale.firebasestorage.app",
+  messagingSenderId: "596143679323",
+  appId: "1:596143679323:web:e2788d7842a197a62f5c7e"
 };
 
 // true assim que as chaves acima forem preenchidas de verdade — usado

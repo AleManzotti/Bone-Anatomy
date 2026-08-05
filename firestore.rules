@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Um admin é qualquer uid que tenha um documento em /admins/{uid} —
+    // esse documento só pode ser criado manualmente pelo console do
+    // Firebase (veja a regra de admins abaixo), nunca pelo próprio app.
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Cada usuário sempre pode ler/escrever só os próprios dados. Um
+    // admin pode LER os dados de qualquer usuário (pro Modo Admin), mas
+    // nunca escrever em nome de outra pessoa.
+    match /users/{userId}/{document=**} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Cada um só consegue ler o PRÓPRIO documento de admin (pra saber se
+    // é admin) — nunca a lista inteira de quem é admin. Gravação sempre
+    // bloqueada pelo app: só dá pra virar admin manualmente no console.
+    match /admins/{adminId} {
+      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow write: if false;
+    }
+  }
+}

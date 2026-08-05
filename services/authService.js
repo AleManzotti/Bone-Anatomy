@@ -39,6 +39,23 @@ const AuthService = (function(){
   function _profileDoc(uid){
     return firebase.firestore().collection('users').doc(uid).collection('profile').doc('main');
   }
+  // Documento "índice" na raiz de users/{uid} (fora das subcoleções
+  // data/ e profile/) — existe só pra tornar a coleção users listável
+  // (o Firestore não lista documentos que só têm subcoleções e nenhum
+  // campo próprio). Usado exclusivamente pelo Modo Admin.
+  function _userIndexDoc(uid){
+    return firebase.firestore().collection('users').doc(uid);
+  }
+  // Idempotente — chamada em todo login (não só no cadastro), pra
+  // contas criadas antes desse índice existir também aparecerem no
+  // Modo Admin, sem precisar de migração manual.
+  function ensureUserIndexed(){
+    if(!_currentUser) return Promise.resolve();
+    return _userIndexDoc(_currentUser.uid).set({
+      email: _currentUser.email,
+      name: _currentUser.displayName || ''
+    }, { merge:true });
+  }
 
   // A foto (se houver) fica só no documento de perfil do Firestore —
   // nunca no campo photoURL do Firebase Auth, que não foi pensado pra
@@ -54,6 +71,7 @@ const AuthService = (function(){
             photoDataUrl: photoDataUrl || '',
             createdAt: DateUtils.todayStr()
           }))
+          .then(()=> _userIndexDoc(user.uid).set({ email, name, createdAt: DateUtils.todayStr() }))
           .then(()=> user.sendEmailVerification());
       });
   }
@@ -101,7 +119,13 @@ const AuthService = (function(){
     const authPromise = (fields.name !== undefined)
       ? _currentUser.updateProfile({ displayName: fields.name })
       : Promise.resolve();
-    return authPromise.then(()=> _profileDoc(_currentUser.uid).set(fields, { merge:true }));
+    return authPromise
+      .then(()=> _profileDoc(_currentUser.uid).set(fields, { merge:true }))
+      .then(()=>{
+        if(fields.name !== undefined){
+          return _userIndexDoc(_currentUser.uid).set({ name: fields.name }, { merge:true });
+        }
+      });
   }
 
   // Trocar e-mail/senha ou excluir a conta exige login "recente" no
@@ -128,14 +152,49 @@ const AuthService = (function(){
     const uid = _currentUser.uid;
     return _reauthenticate(currentPassword)
       .then(()=> _profileDoc(uid).delete().catch(()=>{}))
+      .then(()=> _userIndexDoc(uid).delete().catch(()=>{}))
       .then(()=> _currentUser.delete());
+  }
+
+  // Só pro Modo Admin: verifica se o usuário logado tem um documento em
+  // /admins/{uid}. As regras do Firestore só deixam cada um ler o
+  // PRÓPRIO documento de admin, então isso nunca revela quem mais é
+  // admin — só responde sobre quem está pedindo.
+  function isCurrentUserAdmin(){
+    if(!_currentUser) return Promise.resolve(false);
+    return firebase.firestore().collection('admins').doc(_currentUser.uid).get()
+      .then(doc=> doc.exists)
+      .catch(()=> false);
+  }
+
+  // Lista básica de todos os usuários cadastrados (nome/e-mail/data de
+  // criação) — só funciona pra quem é admin (as regras barram qualquer
+  // outra pessoa nesse ponto).
+  function listAllUsers(){
+    return firebase.firestore().collection('users').get().then(snapshot=>{
+      const list = [];
+      snapshot.forEach(doc=> list.push(Object.assign({ uid: doc.id }, doc.data())));
+      return list;
+    });
+  }
+
+  // Progresso completo de UM usuário (por uid) — só admin consegue ler
+  // de outra pessoa; usado pelo Modo Admin ao abrir o detalhe de alguém.
+  function getUserDataDoc(uid, key){
+    return firebase.firestore().collection('users').doc(uid).collection('data').doc(key).get()
+      .then(doc=> doc.exists ? doc.data().value : null);
+  }
+  function getUserProfile(uid){
+    return firebase.firestore().collection('users').doc(uid).collection('profile').doc('main').get()
+      .then(doc=> doc.exists ? doc.data() : null);
   }
 
   return {
     onAuthChange, getCurrentUser, isEmailVerified, reloadUser,
     signUp, signIn, signOut,
     resendVerificationEmail, sendPasswordReset,
-    getProfile, updateProfileFields,
-    changeEmail, changePassword, deleteAccount
+    getProfile, updateProfileFields, ensureUserIndexed,
+    changeEmail, changePassword, deleteAccount,
+    isCurrentUserAdmin, listAllUsers, getUserDataDoc, getUserProfile
   };
 })();

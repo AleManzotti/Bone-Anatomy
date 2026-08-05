@@ -987,6 +987,137 @@
   }
   .legal-modal-body p{ margin:0 0 10px; }
 
+  /* ---- Modo Admin ---- */
+  .admin-intro{ text-align:left; margin-bottom:18px; }
+  .admin-user-row{
+    border:1px solid var(--rule);
+    background:var(--paper-deep);
+    padding:12px 14px;
+    margin-bottom:8px;
+    cursor:pointer;
+    box-shadow:0 1px 4px rgba(0,0,0,0.05);
+    transition:background-color .2s ease;
+  }
+  .admin-user-row:hover{ background:var(--paper); }
+  .admin-user-main{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .admin-user-main strong{ font-family:'Playfair Display', serif; font-size:15px; }
+  .admin-user-main span{ font-size:12.5px; color:var(--ink-soft); }
+  .admin-user-meta{
+    font-family:'Courier Prime',monospace;
+    font-size:10.5px;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+  .admin-user-detail{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px dashed var(--rule);
+    cursor:default;
+  }
+  .admin-detail-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    font-size:13px;
+  }
+  .admin-detail-grid > div{ display:flex; flex-direction:column; gap:2px; }
+  .admin-detail-label{
+    font-family:'Courier Prime',monospace;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--ink-soft);
+  }
+
+  /* ---- Modos de Jogo (tela hub) ---- */
+  .mode-cards{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    max-width:480px;
+    margin:0 auto;
+  }
+  .mode-card{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    text-align:left;
+    padding:18px 20px;
+    border:1px solid var(--ink);
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:4px;
+    cursor:pointer;
+    box-shadow:0 1px 4px rgba(0,0,0,0.05);
+    transition:transform .18s ease, box-shadow .18s ease, background-color .2s ease;
+  }
+  .mode-card:hover{ transform:translateY(-3px); box-shadow:0 8px 18px rgba(0,0,0,0.14); }
+  .mode-card:active{ transform:translateY(0) scale(0.98); }
+  .mode-card-icon{ font-size:34px; line-height:1; flex:0 0 auto; }
+  .mode-card-name{
+    font-family:'Playfair Display', serif;
+    font-size:18px;
+    font-weight:700;
+    margin-bottom:4px;
+  }
+  .mode-card-desc{ font-size:13.5px; color:var(--ink-soft); line-height:1.4; }
+
+  /* ---- Modo Localizar ---- */
+  .locate-target{
+    text-align:center;
+    font-family:'Playfair Display', serif;
+    font-size:19px;
+    margin-bottom:12px;
+  }
+  .locate-target strong{ color:var(--accent-gold); }
+  .locate-hud{
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    flex-wrap:wrap;
+    font-family:'Courier Prime',monospace;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:16px;
+  }
+  .locate-hud b{ color:var(--ink); }
+  .locate-skel-wrap{
+    border:1px solid var(--rule);
+    padding:8px;
+    background:var(--viewer-bg);
+    max-width:420px;
+    margin:0 auto;
+  }
+  .locate-skel-inner{ position:relative; width:100%; line-height:0; }
+  .locate-skel-inner img{ width:100%; height:auto; display:block; filter:sepia(.15) contrast(1.02); }
+  .locate-skel-inner + .locate-skel-inner{ border-top:1px dashed rgba(255,255,255,.15); padding-top:8px; }
+  button.locate-marker{
+    all:unset;
+    box-sizing:border-box;
+    position:absolute;
+    width:30px; height:30px;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    background:transparent;
+    cursor:pointer;
+    transition:background-color .2s ease, box-shadow .2s ease;
+  }
+  button.locate-marker.correct{
+    background:var(--accent-green);
+    box-shadow:0 0 0 3px rgba(34,197,94,0.35);
+    animation:hotspotGrow .4s ease;
+  }
+  button.locate-marker.wrong{
+    background:rgba(239,68,68,0.55);
+    animation:hotspotShake .4s ease;
+  }
+
   .layout{
     display:flex;
     flex-direction:column;

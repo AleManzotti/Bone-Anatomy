@@ -13,6 +13,9 @@ const ProgressService = (function(){
   const DAY_STREAK_KEY = 'anatomiaByAleStreakV1';
   const LAST_BOARD_KEY = 'anatomiaByAleLastBoardV1';
   const XP_KEY = 'anatomiaByAleXPV1';
+  const IDENTIFY_STATS_KEY = 'anatomiaByAleIdentifyStatsV1';
+  const LOCATE_STATS_KEY = 'anatomiaByAleLocateStatsV1';
+  const LOCATE_COMPLETED_KEY = 'anatomiaByAleLocateCompletedV1';
 
   // ---- Progresso por osso (respostas, tentativas, estado) ----
   let _boneCache = null;
@@ -196,6 +199,71 @@ const ProgressService = (function(){
     };
   }
 
+  // ---- Estatísticas por modo de jogo — cada modo (Identificar/
+  // Localizar) tem seu próprio contador de XP, e o Localizar também
+  // guarda acertos/erros/tempo (o Identificar já tem isso via
+  // game.solved/game.failed + getBoardTimeMs, não precisa duplicar).
+  // O XP de cada modo SEMPRE soma no total geral (addXP) também —
+  // isso aqui é só um recorte "de onde veio", pra estatística. ----
+  function _loadModeStats(key){
+    return StorageService.getJSON(key, { hits: 0, misses: 0, timeMs: 0, xp: 0 });
+  }
+  function _saveModeStats(key, data){
+    StorageService.setJSON(key, data);
+  }
+
+  function addIdentifyXP(amount){
+    const d = _loadModeStats(IDENTIFY_STATS_KEY);
+    d.xp += amount;
+    _saveModeStats(IDENTIFY_STATS_KEY, d);
+  }
+  function getIdentifyStats(){
+    return _loadModeStats(IDENTIFY_STATS_KEY);
+  }
+  function clearIdentifyStats(){
+    StorageService.remove(IDENTIFY_STATS_KEY);
+  }
+
+  function registerLocateResult(correct){
+    const d = _loadModeStats(LOCATE_STATS_KEY);
+    if(correct) d.hits += 1; else d.misses += 1;
+    _saveModeStats(LOCATE_STATS_KEY, d);
+  }
+  function addLocateXP(amount){
+    const d = _loadModeStats(LOCATE_STATS_KEY);
+    d.xp += amount;
+    _saveModeStats(LOCATE_STATS_KEY, d);
+  }
+  function addLocateTimeMs(ms){
+    if(ms <= 0) return;
+    const d = _loadModeStats(LOCATE_STATS_KEY);
+    d.timeMs += ms;
+    _saveModeStats(LOCATE_STATS_KEY, d);
+  }
+  function getLocateStats(){
+    return _loadModeStats(LOCATE_STATS_KEY);
+  }
+  function clearLocateStats(){
+    StorageService.remove(LOCATE_STATS_KEY);
+  }
+
+  // Categorias já completadas (uma volta inteira, todos os ossos
+  // encontrados) no modo Localizar — usado pela conquista "Mestre da
+  // Localização".
+  function getLocateCompletedCategories(){
+    return StorageService.getJSON(LOCATE_COMPLETED_KEY, []);
+  }
+  function markLocateCategoryCompleted(gameKey){
+    const list = getLocateCompletedCategories();
+    if(!list.includes(gameKey)){
+      list.push(gameKey);
+      StorageService.setJSON(LOCATE_COMPLETED_KEY, list);
+    }
+  }
+  function clearLocateCompletedCategories(){
+    StorageService.remove(LOCATE_COMPLETED_KEY);
+  }
+
   return {
     getBoneProgress, setBoneProgress, clearBoneProgress, clearAllBoneProgress,
     getBoardTimeMs, addBoardTimeMs, clearBoardTime,
@@ -203,6 +271,9 @@ const ProgressService = (function(){
     registerCorrectAnswer, registerWrongAnswer, getBestCorrectStreak, clearCorrectStreak,
     updateDayStreak, clearDayStreak,
     saveLastBoard, getLastBoard, getLastBoardRaw, clearLastBoard,
-    getXP, addXP, clearXP, xpForLevel, getLevelForXP, getXPProgress
+    getXP, addXP, clearXP, xpForLevel, getLevelForXP, getXPProgress,
+    addIdentifyXP, getIdentifyStats, clearIdentifyStats,
+    registerLocateResult, addLocateXP, addLocateTimeMs, getLocateStats, clearLocateStats,
+    getLocateCompletedCategories, markLocateCategoryCompleted, clearLocateCompletedCategories
   };
 })();

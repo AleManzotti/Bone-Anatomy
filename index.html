@@ -122,13 +122,12 @@
       <div class="home-main">
         <h1 class="home-logo">Anatomia <em>by</em> ALE</h1>
         <div class="home-menu">
-          <button type="button" class="home-btn primary" id="btnContinue">Continuar Estudos</button>
-          <button type="button" class="home-btn" id="btnAllBoards">Todas as Pranchas</button>
           <button type="button" class="home-btn" id="btnFlashcards">📖 Flashcards (Estudo)</button>
-          <button type="button" class="home-btn" id="btnExamMode">📝 Modo Prova</button>
+          <button type="button" class="home-btn primary" id="btnModes">🎮 Modos de Jogo</button>
           <button type="button" class="home-btn" id="btnProfile">👤 Perfil</button>
           <button type="button" class="home-btn" id="btnStats">Estatísticas</button>
           <button type="button" class="home-btn" id="btnSettings">Configurações</button>
+          <button type="button" class="home-btn" id="btnAdmin" style="display:none">🛡 Modo Admin</button>
         </div>
       </div>
       <div class="home-side">
@@ -202,6 +201,16 @@
         <div class="stat-label">XP total</div>
         <div class="stat-value" id="statTotalXP">0</div>
       </div>
+    </div>
+
+    <div class="stats-subtitle">Por modo de jogo</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Identificar — Precisão</div><div class="stat-value" id="statIdentifyAccuracy">0%</div></div>
+      <div class="stat-card"><div class="stat-label">Identificar — Tempo</div><div class="stat-value stat-value-text" id="statIdentifyTime">0m</div></div>
+      <div class="stat-card"><div class="stat-label">Identificar — XP</div><div class="stat-value" id="statIdentifyXP">0</div></div>
+      <div class="stat-card"><div class="stat-label">Localizar — Precisão</div><div class="stat-value" id="statLocateAccuracy">0%</div></div>
+      <div class="stat-card"><div class="stat-label">Localizar — Tempo</div><div class="stat-value stat-value-text" id="statLocateTime">0m</div></div>
+      <div class="stat-card"><div class="stat-label">Localizar — XP</div><div class="stat-value" id="statLocateXP">0</div></div>
     </div>
 
     <div class="stats-subtitle">Conquistas</div>
@@ -282,6 +291,61 @@
     </div>
     <input type="file" id="accountPhotoInput" accept="image/png,image/jpeg,image/webp" style="display:none">
     <p class="settings-hint" id="accountActionError"></p>
+  </div>
+
+  <div id="screen-admin" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromAdmin">← Início</button>
+    <h2 class="screen-title">Modo Admin</h2>
+    <p class="auth-hint admin-intro">Progresso de todos os usuários cadastrados. Clique num nome pra ver os detalhes.</p>
+    <div id="adminUserList"></div>
+  </div>
+
+  <div id="screen-modes" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromModes">← Início</button>
+    <h2 class="screen-title">Modos de Jogo</h2>
+    <div class="mode-cards">
+      <button type="button" class="mode-card" id="modeCardIdentify">
+        <div class="mode-card-icon">🦴</div>
+        <div class="mode-card-body">
+          <div class="mode-card-name">Identificar o Osso</div>
+          <div class="mode-card-desc">Observe o osso destacado e informe seu nome.</div>
+        </div>
+      </button>
+      <button type="button" class="mode-card" id="modeCardLocate">
+        <div class="mode-card-icon">📍</div>
+        <div class="mode-card-body">
+          <div class="mode-card-name">Localizar o Osso</div>
+          <div class="mode-card-desc">Receba o nome de um osso e encontre sua posição no esqueleto.</div>
+        </div>
+      </button>
+      <button type="button" class="mode-card" id="modeCardExam">
+        <div class="mode-card-icon">🎓</div>
+        <div class="mode-card-body">
+          <div class="mode-card-name">Modo Prova</div>
+          <div class="mode-card-desc">Teste seus conhecimentos sem dicas.</div>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <div id="screen-locateSetup" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromLocateSetup">← Modos de Jogo</button>
+    <h2 class="screen-title">Localizar o Osso</h2>
+    <p class="exam-intro">Escolha uma categoria — você vai receber o nome de um osso por vez e vai precisar clicar na posição certa da imagem.</p>
+    <div class="home-menu" id="locateBoardList"></div>
+  </div>
+
+  <div id="screen-locate" class="screen" style="display:none">
+    <button type="button" class="back-home" id="backFromLocate">← Cancelar</button>
+    <div class="locate-target">📍 Encontre: <strong id="locateTargetName">—</strong></div>
+    <div class="locate-hud">
+      <span>⏱ <b id="locateTime">0m 00s</b></span>
+      <span>✓ <b id="locateHits">0</b></span>
+      <span>✗ <b id="locateMisses">0</b></span>
+      <span>🔥 <b id="locateStreak">0</b></span>
+      <span>⭐ <b id="locateXP">0</b></span>
+    </div>
+    <div class="locate-skel-wrap" id="locateSkelWrap"></div>
   </div>
 
   <div id="screen-boards" class="screen" style="display:none">
@@ -440,6 +504,41 @@
       <button type="button" class="home-btn" id="completionRepeat">Repetir</button>
       <button type="button" class="home-btn primary" id="completionNext">Próxima prancha</button>
       <button type="button" class="home-btn" id="completionMenu">Voltar ao menu</button>
+    </div>
+  </div>
+</div>
+
+<div id="locateCompletionModal" class="modal-backdrop" style="display:none">
+  <div class="modal-card">
+    <div class="modal-check">📍</div>
+    <h2 class="modal-title">Categoria concluída!</h2>
+    <div class="modal-board-name" id="locateCompletionBoardName"></div>
+    <div class="modal-stats">
+      <div class="modal-stat">
+        <span class="modal-stat-label">Tempo</span>
+        <span class="modal-stat-value" id="locateCompletionTime">0m</span>
+      </div>
+      <div class="modal-stat">
+        <span class="modal-stat-label">Acertos</span>
+        <span class="modal-stat-value" id="locateCompletionHits">0</span>
+      </div>
+      <div class="modal-stat">
+        <span class="modal-stat-label">Erros</span>
+        <span class="modal-stat-value" id="locateCompletionMisses">0</span>
+      </div>
+      <div class="modal-stat">
+        <span class="modal-stat-label">Precisão</span>
+        <span class="modal-stat-value" id="locateCompletionAccuracy">0%</span>
+      </div>
+      <div class="modal-stat modal-stat-xp">
+        <span class="modal-stat-label">XP recebido</span>
+        <span class="modal-stat-value" id="locateCompletionXP">+0 XP</span>
+      </div>
+    </div>
+    <div class="modal-buttons">
+      <button type="button" class="home-btn" id="locateCompletionRepeat">Jogar de novo</button>
+      <button type="button" class="home-btn primary" id="locateCompletionNext">Próxima categoria</button>
+      <button type="button" class="home-btn" id="locateCompletionMenu">Voltar aos modos</button>
     </div>
   </div>
 </div>
